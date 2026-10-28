@@ -49,6 +49,8 @@ jobs:
           arch: ${{ matrix.arch }}
           ts: ${{ matrix.ts }}
           libs: libzmq
+          # No composer.json in php-zmq, so the builder won't add this flag itself.
+          args: --with-zmq=shared
           # php-zmq's test suite relies on ipc:// and network sockets that don't
           # work on Windows runners; enable once the DLL itself builds.
           run-tests: 'false'
