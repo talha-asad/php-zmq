@@ -1,7 +1,7 @@
 name: Build php-zmq for PHP 8.5
 
 on:
-  workflow_dispatch:   # manual trigger
+  workflow_dispatch:
   push:
     branches: [main]
 
@@ -14,27 +14,21 @@ jobs:
     strategy:
       matrix:
         arch: [x64]
-        ts: [nts, ts]          # add x86 if you need it
+        ts: [nts, ts]
     steps:
-      - name: Checkout extension (or your fork with patches)
+      - name: Checkout extension
         uses: actions/checkout@v4
         with:
           repository: zeromq/php-zmq
-          ref: master           # or a branch that has the PHP 8.5 fix
-
-      # Optional: apply the PHP 8.5 patch if it's not in the ref you checked out
-      # - name: Apply PHP 8.5 patch
-      #   run: |
-      #     # download or apply the patch from https://github.com/zeromq/php-zmq/pull/240
+          ref: master
 
       - name: Build the extension
-        uses: php/php-windows-builder/extension@v1
+        uses: php/php-windows-builder/extension@29352c0   # pinned to v1.9.0 (before -1 rebuilds)
         with:
           php-version: '8.5.12'
           arch: ${{ matrix.arch }}
           ts: ${{ matrix.ts }}
           libs: libzmq
-          # args: '--enable-zmq'   # usually auto-detected from config.w32
 
       - name: Upload DLL artifact
         uses: actions/upload-artifact@v4
