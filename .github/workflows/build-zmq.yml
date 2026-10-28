@@ -12,6 +12,7 @@ jobs:
   build:
     runs-on: windows-2022
     strategy:
+      fail-fast: false          # let nts finish even if ts breaks (and vice versa)
       matrix:
         arch: [x64]
         ts: [nts, ts]
@@ -22,8 +23,24 @@ jobs:
           repository: zeromq/php-zmq
           ref: master
 
+      # zend_exception_get_default() was removed in PHP 8.5; upstream master
+      # still calls it. Equivalent to the unmerged zeromq/php-zmq PR #240.
+      - name: Patch for PHP 8.5
+        shell: pwsh
+        run: |
+          $f = 'zmq.c'
+          $src = Get-Content $f -Raw
+          if ($src -notmatch 'zend_exception_get_default\(\)') {
+            Write-Host 'Already patched (or upstream merged the fix) - nothing to do'
+          } else {
+            $src = $src -replace 'zend_exception_get_default\(\)', 'zend_ce_exception'
+            Set-Content $f $src -NoNewline
+            Write-Host 'Patched zmq.c'
+          }
+          Select-String -Path $f -Pattern 'zend_register_internal_class_ex\(&ce_exception'
+
       - name: Build the extension
-        uses: php/php-windows-builder/extension@29352c0ef9e8ce65264ea9e287881a6f7758a953   # pinned to v1.9.0 (before -1 rebuilds)
+        uses: php/php-windows-builder/extension@29352c0ef9e8ce65264ea9e287881a6f7758a953   # v1.9.0
         with:
           php-version: '8.5.12'
           arch: ${{ matrix.arch }}
@@ -33,7 +50,9 @@ jobs:
       - name: Upload DLL artifact
         uses: actions/upload-artifact@v4
         with:
-          name: php_zmq-${{ matrix.ts }}-${{ matrix.arch }}
+          name: php_zmq-8.5.12-${{ matrix.ts }}-${{ matrix.arch }}
           path: |
-            **/*.dll
-            **/*.pdb
+            **/php_zmq.dll
+            **/php_zmq.pdb
+            **/libzmq*.dll
+          if-no-files-found: error
