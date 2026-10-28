@@ -3,7 +3,7 @@ name: Build php-zmq for PHP 8.5
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [master]
 
 permissions:
   contents: read
@@ -12,47 +12,50 @@ jobs:
   build:
     runs-on: windows-2022
     strategy:
-      fail-fast: false          # let nts finish even if ts breaks (and vice versa)
+      fail-fast: false
       matrix:
         arch: [x64]
         ts: [nts, ts]
     steps:
+      # Check out THIS fork (zmq.c already carries the PHP 8.5 fix in commit 4f4bd83).
+      # Checking out zeromq/php-zmq made php-windows-builder think the workspace
+      # was the wrong repo, so it re-checked out the fork over it anyway.
       - name: Checkout extension
-        uses: actions/checkout@v4
-        with:
-          repository: zeromq/php-zmq
-          ref: master
+        uses: actions/checkout@v5
 
-      # zend_exception_get_default() was removed in PHP 8.5; upstream master
-      # still calls it. Equivalent to the unmerged zeromq/php-zmq PR #240.
-      - name: Patch for PHP 8.5
+      - name: Verify PHP 8.5 patch is present
         shell: pwsh
         run: |
-          $f = 'zmq.c'
-          $src = Get-Content $f -Raw
-          if ($src -notmatch 'zend_exception_get_default\(\)') {
-            Write-Host 'Already patched (or upstream merged the fix) - nothing to do'
-          } else {
-            $src = $src -replace 'zend_exception_get_default\(\)', 'zend_ce_exception'
-            Set-Content $f $src -NoNewline
-            Write-Host 'Patched zmq.c'
+          if (Select-String -Path zmq.c -Pattern 'zend_exception_get_default\(\)' -Quiet) {
+            throw 'zmq.c still calls zend_exception_get_default() - patch missing'
           }
-          Select-String -Path $f -Pattern 'zend_register_internal_class_ex\(&ce_exception'
+          Write-Host 'zmq.c is patched for PHP 8.5'
+
+      # php-windows-builder/extension expects major.minor (e.g. 8.5) and builds
+      # against the newest Windows release of that series. Passing '8.5.12' sends it
+      # down a fallback path that crashes parsing the build-numbered '8.5.12-1'
+      # as System.Version. This step makes sure the series resolves to 8.5.12.
+      - name: Confirm PHP 8.5 resolves to 8.5.12
+        shell: pwsh
+        run: |
+          $v = (Invoke-RestMethod https://downloads.php.net/~windows/releases/releases.json).'8.5'.version
+          Write-Host "PHP 8.5 Windows release: $v"
+          if ($v -notmatch '^8\.5\.12(-\d+)?$') { throw "Expected 8.5.12, got $v" }
 
       - name: Build the extension
         uses: php/php-windows-builder/extension@29352c0ef9e8ce65264ea9e287881a6f7758a953   # v1.9.0
         with:
-          php-version: '8.5.12'
+          php-version: '8.5'
           arch: ${{ matrix.arch }}
           ts: ${{ matrix.ts }}
           libs: libzmq
+          # php-zmq's test suite relies on ipc:// and network sockets that don't
+          # work on Windows runners; enable once the DLL itself builds.
+          run-tests: 'false'
 
       - name: Upload DLL artifact
         uses: actions/upload-artifact@v4
         with:
           name: php_zmq-8.5.12-${{ matrix.ts }}-${{ matrix.arch }}
-          path: |
-            **/php_zmq.dll
-            **/php_zmq.pdb
-            **/libzmq*.dll
+          path: artifacts/*
           if-no-files-found: error
