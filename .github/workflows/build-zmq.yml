@@ -30,7 +30,7 @@ jobs:
       - name: Build the extension
         uses: php/php-windows-builder/extension@v1
         with:
-          php-version: '8.5.12'   # or just '8.5'
+          php-version: '8.5.12-1'   # or just '8.5'
           arch: ${{ matrix.arch }}
           ts: ${{ matrix.ts }}
           # args: '--enable-zmq'   # usually auto-detected from config.w32
