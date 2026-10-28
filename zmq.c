@@ -2864,7 +2864,7 @@ PHP_MINIT_FUNCTION(zmq)
 #endif
 
 	INIT_CLASS_ENTRY(ce_exception, "ZMQException", NULL);
-	php_zmq_exception_sc_entry = zend_register_internal_class_ex(&ce_exception, zend_exception_get_default());
+	php_zmq_exception_sc_entry = zend_register_internal_class_ex(&ce_exception, zend_ce_exception);
 	php_zmq_exception_sc_entry->ce_flags &= ~ZEND_ACC_FINAL;
 
 	INIT_CLASS_ENTRY(ce_context_exception, "ZMQContextException", NULL);
