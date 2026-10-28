@@ -45,11 +45,8 @@
 # endif
 #endif
 
-#ifdef PHP_WIN32
-# include "win32/php_stdint.h"
-#else
-# include <stdint.h>
-#endif
+/* win32/php_stdint.h was removed from PHP; MSVC ships <stdint.h> */
+#include <stdint.h>
 
 typedef struct _php_zmq_pollset php_zmq_pollset;
 
